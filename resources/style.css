@@ -2,6 +2,13 @@
   background: #fff url(transparent.png) top left fixed;
 }
 
+.kodepad .inner-header .title {
+  font-size: 11px !important;
+  font-weight: normal !important;
+  text-indent: 0 !important;
+  line-height: 24px !important;
+}
+
 .kodepad.loading {
   box-shadow: inset 2px 2px 10px rgba(0,0,0,0.5);
   background: url(icon.128.png) center center no-repeat, 
@@ -34,7 +41,8 @@
 
 .kodepad .control-pane .on-off {
   float: right;
-  margin-right: 5px;
+  margin-right: 11px;
+  margin-top: 6px;
 }
 
 .kodepad .control-pane .icon.docs {
@@ -50,7 +58,10 @@
 }
 
 .kodepad .control-pane .header-buttons {
-  width: 411px;
+  width: 450px;
+  float: right;
+  top: -2px;
+  right: 5px;
 }
 
 .kodepad .control-pane .header-buttons .control-button {
@@ -67,6 +78,16 @@
 
 .kodepad .control-pane .control-button.save-as-kdapp {
   line-height: 10px;
+  height: 23px;
+  top: 4px;
+}
+
+.kodepad .control-pane .control-button.save-as-kdapp .chevron {
+  top: 6px;
+}
+
+.kodepad .control-pane .control-button.save-as-kdapp .chevron-separator {
+  top: 4px;
 }
 
 .kodepad .control-pane .control-button.code-examples {
