@@ -260,6 +260,54 @@ Kodepad.Settings.exampleCodes.push
       margin: 10px 10px;
     }
     """
+    
+Kodepad.Settings.exampleCodes.push
+  title: "The Terminal: Real one"
+  css: 
+    """
+    .your-app-name {
+    }
+    """
+  coffee:
+    """
+    class MainView extends JView
+      constructor:->
+        super
+    
+        @terminal = new KDView
+          cssClass: "terminal"
+        @terminal.$().css
+          width: "100%"
+          height: 300
+      
+        @webterm = new WebTermView
+          delegate: @terminal
+          cssClass: "webterm"
+          
+        @webterm.on "WebTermConnected", (remote)=>
+          @remote = remote
+        
+        @terminal.addSubView @webterm
+        
+        @runCmd = new KDButtonView
+          title: "Run command"
+          callback: =>
+            @remote.input "ls\\n"
+    
+      pistachio:->
+        \"\"\"
+        This is a real terminal:
+        {{> @terminal}}
+        <br>
+        {{> @runCmd}}
+        \"\"\"
+      viewAppended: ->
+        @setTemplate do @pistachio
+    
+    appView.addSubView new MainView
+      cssClass: "your-app-name"
+    
+    """
 
 Kodepad.Settings.exampleCodes.push
   title: "Sample.kdapp (Really.)"

@@ -91,7 +91,7 @@ class Kodepad.Views.MainView extends JView
       
         
     @controlView = new KDView
-      cssClass: 'control-pane editor-header'
+      cssClass: 'control-pane inner-header'
       
     @exampleCode = new KDSelectBox
       label: new KDLabelView
@@ -103,7 +103,7 @@ class Kodepad.Views.MainView extends JView
       callback: =>
         @lastSelectedItem = @exampleCode.getValue()
         {coffee, css} = Kodepad.Settings.exampleCodes[@lastSelectedItem]
-        
+        delete AppCreator.getSingleton()._lastSavedAppName
         @ace.getSession().setValue coffee
         @cssAce.getSession().setValue css
     
@@ -190,10 +190,8 @@ class Kodepad.Views.MainView extends JView
                             title : "Loading Gist..."
                             
                           kite = KD.getSingleton "kiteController"
-                          kite.run "curl -kL #{url}", (error, data) =>
+                          kite.run "curl -kLss #{url}", (error, data) =>
                             try data = JSON.parse data
-                            
-                            debugger
                             
                             if not error
                               @ace.getSession().setValue data.files["index.coffee"].content
@@ -208,54 +206,8 @@ class Kodepad.Views.MainView extends JView
                                 title : "Try again. :("
                 
       
-      callback: =>
-        modal = new KDModalViewWithForms
-          title                     : "Save Application"
-          content                   : """
-              <div class='modalformline'>
-                <p>You can build an application using Kodepad. Please set your application up.</p>
-                <p>Don't forget to edit <code>.manifest</code> file in your application directory.</p>
-              </div>
-          """
-          overlay                   : yes
-          height                    : "auto"
-          tabs                      :
-            navigable               : yes
-            forms                   : 
-              "Settings": 
-                fields              : 
-                  name              :
-                    label           : "Name: "
-                    name            : "name"
-                    placeholder     : "name your application..."
-                    validate        :
-                      rules         :
-                        regExp      : /^[a-z\d]+([-][a-z\d]+)*$/i
-                      messages      :
-                        regExp      : "For Application name only lowercase letters and numbers are allowed!"
-                buttons             :
-                  "Save":
-                    cssClass        : "modal-clean-gray"
-                    callback        : =>
-                      
-                      if not modal.modalTabs.forms.Settings.inputs.name.validate()
-                        return
-                      
-                      name      = modal.modalTabs.forms.Settings.inputs.name.getValue()
-                      
-                      coffee    = @ace.getSession().getValue()
-                      css       = @cssAce.getSession().getValue()
-                      
-                      notify = new KDNotificationView
-                        title : "Application #{name} is being created now..."
-                      
-                      AppCreator.getSingleton().create name, coffee, css, ->
-                        
-                        notify.destroy()
-                        modal.destroy()
-                        new KDNotificationView
-                          title : "Your application #{name} is ready! Have fun. :)"
-    
+      callback: => @askForSave()
+  
     @controlButtons.addSubView new KDButtonView
       cssClass    : 'clean-gray editor-button control-button full-preview'
       title       : ""
@@ -275,15 +227,21 @@ class Kodepad.Views.MainView extends JView
       style       : "kdwhitebtn"
       cssClass    : "clean-gray editor-button control-button transp"
       states      : [
-        "Transparent", (callback)=>
-          @preview.domElement.addClass 'transparented'
-          toggleTransparency.domElement.addClass 'transparented'
-          do callback
-        "Opaque", (callback)=>
-          @preview.domElement.removeClass 'transparented'
-          toggleTransparency.domElement.removeClass 'transparented'
-          do callback
-      ]   
+        {
+          title: "Transparent"
+          callback: =>
+            @preview.domElement.addClass 'transparented'
+            toggleTransparency.domElement.addClass 'transparented'
+            toggleTransparency.setState "Opaque"
+        }
+        { 
+          title: "Opaque"
+          callback: =>
+            @preview.domElement.removeClass 'transparented'
+            toggleTransparency.domElement.removeClass 'transparented'
+            toggleTransparency.setState "Transparent"
+        }
+        ]   
 
     @controlButtons.addSubView toggleTransparency
     
@@ -336,6 +294,59 @@ class Kodepad.Views.MainView extends JView
     {{> @cssEditor.getView()}}
     {{> @splitView}}
     """
+  
+  askForSave:->
+    modal = new KDModalViewWithForms
+      title                     : "Save Application"
+      content                   : """
+          <div class='modalformline'>
+            <p>You can build an application using Kodepad. Please set your application up.</p>
+            <p>Don't forget to edit <code>manifest.json</code> file in your application directory.</p>
+          </div>
+      """
+      overlay                   : yes
+      height                    : "auto"
+      tabs                      :
+        navigable               : yes
+        forms                   : 
+          "Settings": 
+            fields              : 
+              name              :
+                label           : "Name: "
+                name            : "name"
+                placeholder     : "name your application..."
+                validate        :
+                  rules         :
+                    regExp      : /^[a-z\d]+([-][a-z\d]+)*$/i
+                  messages      :
+                    regExp      : "For Application name only lowercase letters and numbers are allowed!"
+            buttons             :
+              "Save":
+                cssClass        : "modal-clean-gray"
+                loader          : 
+                  color         : "#444444"
+                  diameter      : 12
+                callback        : =>
+                  
+                  if not modal.modalTabs.forms.Settings.inputs.name.validate()
+                    return
+                  
+                  name      = modal.modalTabs.forms.Settings.inputs.name.getValue()
+                  coffee    = @ace.getSession().getValue()
+                  css       = @cssAce.getSession().getValue()
+                  
+                  notify = new KDNotificationView
+                    title : "Application #{name} is being created now..."
+                  
+                  modal.modalTabs.forms.Settings.buttons.Save.showLoader()
+                  AppCreator.getSingleton().create name, coffee, css, ->
+                      
+                    notify.destroy()
+                    modal.destroy()
+                    new KDNotificationView
+                      title : "Your application #{name} is ready! Have fun. :)"
+
+
   buildAce: ->
     ace = @getOptions().ace
     try
@@ -359,7 +370,16 @@ class Kodepad.Views.MainView extends JView
           win   : 'Ctrl-S'
           mac   : 'Command-S'
         exec    : => 
-          @editor.setValue @ace.getSession().getValue()
+          content = @ace.getSession().getValue()
+          @editor.setValue content
+          console.log 'SAVE REQUESTED FROM COFFEE'
+          appCreator = AppCreator.getSingleton()
+          if appCreator._lastSavedAppName
+            AppCreator.getSingleton().saveFiles
+              coffee : content
+              notify : yes
+          else
+            @askForSave()
       
     try
       
@@ -382,7 +402,16 @@ class Kodepad.Views.MainView extends JView
           win   : 'Ctrl-S'
           mac   : 'Command-S'
         exec    : => 
-          @cssEditor.setValue @cssAce.getSession().getValue()
+          content = @cssAce.getSession().getValue()
+          @cssEditor.setValue content
+          appCreator = AppCreator.getSingleton()
+          console.log 'SAVE REQUESTED FROM CSS'
+          if appCreator._lastSavedAppName
+            AppCreator.getSingleton().saveFiles
+              css    : content
+              notify : yes
+          else
+            @askForSave()
   
   viewAppended:->
     @delegateElements()

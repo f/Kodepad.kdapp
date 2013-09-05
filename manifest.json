@@ -1,6 +1,7 @@
 {
-  "version": "0.3.1",
+  "version": "0.3.2",
   "name": "Kodepad",
+  "title": "Kodepad",
   "identifier": "com.koding.apps.kodepad",
   "path": "~/Applications/Kodepad.kdapp",
   "homepage": "fkadev.koding.com/kodepad",

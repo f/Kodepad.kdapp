@@ -30,6 +30,7 @@ class Kodepad.Core.LiveViewer
     # Fake App View, THIS IS THE TRICK,
     # Binding appView to preview, so 
     # appView will work as preview.
+    window.WebTermView = WebTermView
     require ["https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js"], (Coffee)=>
       window.appView = @previewView
       try
@@ -73,6 +74,7 @@ class Kodepad.Core.AppCreator
         "version": "0.1",
         "name": "#{appName}",
         "identifier": "com.koding.#{nickname}.apps.#{appName.toLowerCase()}",
+        "authorNick": "#{nickname}",
         "path": "~/Applications/#{appName}.kdapp",
         "homepage": "#{nickname}.koding.com/#{appName}",
         "author": "#{firstName} #{lastName}",
@@ -108,38 +110,24 @@ class Kodepad.Core.AppCreator
     
     kite    = KD.getSingleton 'kiteController'
     finder  = KD.getSingleton "finderController"
-    tree    = finder.treeController
     
-    appPath      = "/Users/#{nickname}/Applications"
+    appPath      = "~/Applications"
     basePath     = "#{appPath}/#{name}.kdapp"
-    coffeeFile   = "#{basePath}/index.coffee"
-    cssFile      = "#{basePath}/resources/style.css"
-    manifestFile = "#{basePath}/.manifest"
-    
+
     commands = [
       "mkdir -p #{basePath}"
       "mkdir -p #{basePath}/resources"
-      "curl -kL https://koding.com/images/default.app.thumb.png -o #{basePath}/resources/icon.128.png"
+      "curl -kLss https://koding.com/images/default.app.thumb.png -o #{basePath}/resources/icon.128.png"
     ]
     skeleton = commands.join ";"
     
-    kite.run skeleton, (error, response)->
+    kite.run skeleton, (error, response)=>
       return if error
       
-      # Saving Coffee
-      coffeeFileInstance = FSHelper.createFileFromPath coffeeFile
-      coffeeFileInstance.save coffee
-      
-      # Saving CSS
-      cssFileInstance = FSHelper.createFileFromPath cssFile
-      cssFileInstance.save css
-      
-      # Saving Manifest
-      manifestFileInstance = FSHelper.createFileFromPath manifestFile
-      manifestFileInstance.save manifest
+      @_lastSavedAppName = name
+      @saveFiles {coffee, css, manifest}
       
       KD.utils.wait 1000, -> 
-        tree.refreshFolder tree.nodes[appPath]
         KD.getSingleton('kodingAppsController').refreshApps()
         do callback
     
@@ -159,15 +147,46 @@ class Kodepad.Core.AppCreator
         "style.css": {content: css}
 
     kite    = KD.getSingleton 'kiteController'
-    kite.run "mkdir -p /Users/#{nickname}/.kodepad", (err, res) ->
+    kite.run "mkdir -p ~/.kodepad", (err, res) ->
       
-      tmpFile = "/Users/#{nickname}/.kodepad/.gist.tmp"
+      tmpFile = "/home/#{nickname}/.kodepad/.gist.tmp"
       
       tmp = FSHelper.createFileFromPath tmpFile
       tmp.save JSON.stringify(gist), (err, res)->
         return if err
         
-        kite.run "curl -kL -A\"Koding\" -X POST https://api.github.com/gists --data @#{tmpFile}", (err, res)->
+        kite.run "curl -kLss -A\"Koding\" -X POST https://api.github.com/gists --data @#{tmpFile}", (err, res)->
+          KD.enableLogs()
+          console.log err, res
           callback err, JSON.parse(res)
-          kite.run "rm -f #{tmpFile}"
+          #kite.run "rm -f #{tmpFile}"
+
+  saveFiles:(options, callback)->
+
+    {coffee, coffeeFile, css, cssFile, 
+     manifest, manifestFile, name, notify} = options
+
+    name or= @_lastSavedAppName
     
+    appPath        = "~/Applications"
+    basePath       = "#{appPath}/#{name}.kdapp"
+    coffeeFile   or= "#{basePath}/index.coffee"
+    cssFile      or= "#{basePath}/resources/style.css"
+    manifestFile or= "#{basePath}/manifest.json"
+    
+    if coffee
+      # Saving Coffee
+      coffeeFileInstance = FSHelper.createFileFromPath coffeeFile
+      coffeeFileInstance.save coffee, ->
+        if notify then new KDNotificationView title: "Saved to #{coffeeFile}"
+    
+    if css
+      # Saving CSS
+      cssFileInstance = FSHelper.createFileFromPath cssFile
+      cssFileInstance.save css, ->
+        if notify then new KDNotificationView title: "Saved to #{cssFile}"
+
+    if manifest
+      # Saving Manifest
+      manifestFileInstance = FSHelper.createFileFromPath manifestFile
+      manifestFileInstance.save manifest
